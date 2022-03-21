@@ -1,8 +1,9 @@
 import json
 import os
 import sqlite3
+import urllib
 
-from flask import Flask, redirect, request, url_for
+from flask import Flask, redirect, request, url_for, render_template
 from flask_login import (
     LoginManager,
     current_user,
@@ -29,14 +30,16 @@ login_manager.init_app(app)
 
 try:
     init_db_command()
-except sqlite3.OperationalError: 
-    pass # Assume it's already been created
+except sqlite3.OperationalError:
+    pass  # Assume it's already been created
 
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
+
 
 @app.route("/")
 def index():
@@ -45,15 +48,21 @@ def index():
             "<p>Hello, {}! You're logged in! Email: {}</p>"
             "<div><p>Google Profile Picture:</p>"
             '<img src="{}" alt="Google profile pic"></img></div>'
-            '<a class="button" href="/logout">Logout</a>'.format(
+            '<a class="button" href="/logout">Logout</a><br>'
+            '<a class="button" href="/list/city">city</a><br>'
+            '<a class="button" href="/city/date">date</a><br>'
+            '<a class="button" href="/about">about</a><br>'
+            '<a class="button" href="/useragent">useragent</a>'.format(
                 current_user.name, current_user.email, current_user.profile_pic
             )
         )
     else:
         return '<a class="button" href="/login">Google Login</a>'
 
+
 def get_google_provider_cfg():
     return requests.get(GOOGLE_DISCOVERY_URL).json()
+
 
 @app.route("/login")
 def login():
@@ -114,11 +123,73 @@ def callback():
 
     return redirect(url_for("index"))
 
+
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("index"))
+
+
+@app.route("/list/city", methods=['POST', 'GET'])
+def city_weather():
+    if request.method == 'POST':
+        city = request.form['city']
+    else:
+        city = 'minsk'
+    api = os.environ.get("api")
+    source = urllib.request.urlopen('https://api.openweathermap.org/data/2.5/forecast?q=' + city + '&appid=' + api).read()
+    list_of_data = json.loads(source)
+    data = [
+        {
+        "date": str(list_of_data['list'][0]['dt_txt']),
+        "temp": str(list_of_data['list'][0]['main']['temp']-273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        },
+        {
+        "date": str(list_of_data['list'][7]['dt_txt']),
+        "temp": str(list_of_data['list'][7]['main']['temp'] - 273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        },
+        {
+        "date": str(list_of_data['list'][15]['dt_txt']),
+        "temp": str(list_of_data['list'][15]['main']['temp'] - 273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        },
+        {
+        "date": str(list_of_data['list'][23]['dt_txt']),
+        "temp": str(list_of_data['list'][23]['main']['temp'] - 273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        },
+        {
+        "date": str(list_of_data['list'][31]['dt_txt']),
+        "temp": str(list_of_data['list'][31]['main']['temp'] - 273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        },
+        {
+        "date": str(list_of_data['list'][39]['dt_txt']),
+        "temp": str(list_of_data['list'][39]['main']['temp'] - 273),
+        "city": str(list_of_data['city']['name']),
+        "country": str(list_of_data['city']['country'])
+        }
+    ]
+    print(data)
+    return render_template('weather.html', data=data)
+
+
+@app.route("/useragent")
+def useragent():
+    user_agent = request.user_agent
+    return (
+            '<p>your platform is: {}</p>'
+            '<p>your browser is: {}</p>'.format(user_agent.platform, user_agent.browser)
+    )
+
 
 if __name__ == "__main__":
     app.run(ssl_context="adhoc")
